@@ -1,0 +1,53 @@
+name: CI/CD Pipeline for Wine Quality Prediction
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  run_full_mlops_pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .  # Install the local package
+
+      # NOTE: Replace with your actual MLflow/DVC setup and credentials
+      - name: Configure MLflow Tracking
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+        run: |
+          echo "MLflow URI configured"
+
+      - name: Run MLOps Pipeline
+        run: |
+          # The main.py should orchestrate the stages (Ingestion, Validation, Training)
+          python main.py
+          
+      - name: URL Check Output / Validation Status Check
+        run: |
+          # This step checks the status file created by the validation stage (Data Validation component)
+          validation_status=$(cat artifacts/data_validation_status.txt)
+          echo "Data Validation Status: $validation_status"
+          if [[ "$validation_status" != *"True"* ]]; then
+            echo "Data validation failed. Stopping pipeline."
+            exit 1 # Fail the job if data validation is False
+          fi
+          
+      # Add a deployment step here (CD) - e.g., deploy to an AWS/Azure service
+      # - name: Deploy Model to Production
+      #   uses: ...
